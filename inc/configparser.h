@@ -21,37 +21,39 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define GPIOD_SECTION_COUNT		3
-const char* CPIOD_SECTION_MAP[GPIOD_SECTION_COUNT];
+const char* CONFIG_SECTION_MAP[CONFIG_SECTION_COUNT];
 
-typedef struct GPIO_Config_Entry {
+typedef struct Config_Entry {
 	char* name;
 	char* value;
-} GPIO_Config_Entry_t;
+} Config_Entry_t;
 
-typedef struct GPIO_Config_EntryList {
+typedef struct Item_Chain {
+	Config_Entry_t* item;
+	void* next;
+} Item_Chain_t;
+
+typedef struct Config_SectionItems {
 	unsigned int count;
-	GPIO_Config_Entry_t* items[];
-} GPIO_Config_EntryList_t;
+	Config_Entry_t** items;
+} Config_SectionItems_t;
 
-typedef struct GPIOd_Config {
+typedef struct Config {
 	bool debug;
-	GPIO_Config_EntryList_t* section[GPIOD_SECTION_COUNT];
-} GPIOD_Config_t;
+	Config_SectionItems_t* sections[CONFIG_SECTION_COUNT];
+} Config_t;
 
-
-typedef enum ConfigSection{
-	GPIOD_CONFIG_SECTION_UNKNOWN			=-1,
-	GPIOD_CONFIG_SECTION_GPIOD				= 0,
-	GPIOD_CONFIG_SECTION_GPIO_SETUP		= 1,
-	GPIOD_CONFIG_SECTION_HANDLER			= 2
-} GPIOD_Config_Section_t;
 
 /* function prototypes */
-int configparser_read(char*,GPIOD_Config_t*);
-void configparser_init(GPIOD_Config_t*);
-void configparser_section_malloc(GPIOD_Config_t*, GPIOD_Config_Section_t);
-void configparser_section_free(GPIO_Config_EntryList_t** section);
+int configparser_read(char*,Config_t*);
+void configparser_init(Config_t*);
+void configparser_section_malloc(Config_t*, Config_Section_t);
+void configparser_section_free(Config_SectionItems_t** section);
+void configparser_dump_section(Config_t*, Config_Section_t);
+
+char* configparser_get_value(Config_t*,Config_Section_t,char*);
+
+Config_SectionItems_t* configparser_get_section(Config_t*,Config_Section_t);
 
 #define MAX_LINE_LENGTH				256
 #define MAX_CFG_NAME_LENGTH		128
