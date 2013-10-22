@@ -74,6 +74,7 @@ void configparser_section_free(Config_SectionItems_t** section) {
  * create a new section with empty item-lists
  */
 void configparser_section_malloc(Config_t* config, Config_Section_t cs) {
+
 	if (cs!=CONFIG_SECTION_UNKNOWN) {
 		configparser_section_free(&config->sections[cs]);
 		config->sections[cs]=(Config_SectionItems_t*)malloc(sizeof(Config_SectionItems_t));
@@ -82,6 +83,7 @@ void configparser_section_malloc(Config_t* config, Config_Section_t cs) {
 	//init section
 	config->sections[cs]->count=0;
 }
+
 void configparser_init(Config_t* config) {
 	unsigned int cSIDX;
 	
@@ -139,7 +141,7 @@ int configparser_read(char* filename,Config_t* config) {
 	Item_Chain_t* fItemChain=NULL; /* first item */
 	Item_Chain_t* tItemChain=NULL; /* temporary item */
 	
-	Config_Section_t cConfigSection;
+	Config_Section_t cConfigSection=CONFIG_SECTION_UNKNOWN;
 	
 	fp = fopen (filename, "rt");
 	
@@ -151,53 +153,54 @@ int configparser_read(char* filename,Config_t* config) {
 			printf("== config parser ==\n");
 		}
 		while( fgets(config_line, MAX_LINE_LENGTH, fp)!=NULL ) {
-			line_len=strlen(config_line);
-			if ((config_line[0]=='[') && (config_line[line_len-2]==']')) {
-				/* handle section lines */
-				config_line[line_len-2]=0;
-				sscanf(config_line, "[%s", cfg_name);
-				if (config->debug) {
-					printf("\nNew section found: %s\n",cfg_name);
-				}
-				
-				/* previous section found, now copy items */
-				if (cConfigSection!=CONFIG_SECTION_UNKNOWN) {
-					configparser_copy_items(config->sections[cConfigSection],&fItemChain,cSectionItemCount);
-				}
-				cConfigSection=CONFIG_SECTION_UNKNOWN;
-				cSectionIdx=CONFIG_SECTION_COUNT;
-				while(cSectionIdx--) {
-					if (strcasestr(cfg_name,CONFIG_SECTION_MAP[cSectionIdx])) {
-						cConfigSection=cSectionIdx;
-						break;
+			if (config_line[0]!='#') {
+				line_len=strlen(config_line);
+				if ((config_line[0]=='[') && (config_line[line_len-2]==']')) {
+					/* handle section lines */
+					config_line[line_len-2]=0;
+					sscanf(config_line, "[%s", cfg_name);
+					if (config->debug) {
+						printf("\nNew section found: %s\n",cfg_name);
 					}
-				}
-				configparser_section_malloc(config,cSectionIdx);
-			} else {
-				/* handle key-value pairs */
-				if (cConfigSection!=CONFIG_SECTION_UNKNOWN) {
-					if (sscanf(config_line, "%s = %s", cfg_name,cfg_value)==2) {
-						if (config->debug) {
-							printf("%s = %s\n", cfg_name,cfg_value);
+					if (cConfigSection!=CONFIG_SECTION_UNKNOWN) {
+						/* previous section found, now copy items */
+						configparser_copy_items(config->sections[cConfigSection],&fItemChain,cSectionItemCount);
+					}
+					cConfigSection=CONFIG_SECTION_UNKNOWN;
+					cSectionIdx=CONFIG_SECTION_COUNT;
+					while(cSectionIdx--) {
+						if (strcasestr(cfg_name,CONFIG_SECTION_MAP[cSectionIdx])) {
+							cConfigSection=cSectionIdx;
+							break;
 						}
-						cSectionItemCount++;
-						if (fItemChain==NULL) {
-							fItemChain=malloc(sizeof(Item_Chain_t));
-							fItemChain->item=malloc(sizeof(Config_Entry_t));
-							tItemChain=fItemChain;
-						} else {
-							tItemChain->next=malloc(sizeof(Item_Chain_t));
-							tItemChain=tItemChain->next;
-							tItemChain->item=malloc(sizeof(Config_Entry_t));
+					}
+					configparser_section_malloc(config,cSectionIdx);
+				} else {
+					/* handle key-value pairs */
+					if (cConfigSection!=CONFIG_SECTION_UNKNOWN) {
+						if (sscanf(config_line, "%s = %s", cfg_name,cfg_value)==2) {
+							if (config->debug) {
+								printf("%s = %s\n", cfg_name,cfg_value);
+							}
+							cSectionItemCount++;
+							if (fItemChain==NULL) {
+								fItemChain=malloc(sizeof(Item_Chain_t));
+								fItemChain->item=malloc(sizeof(Config_Entry_t));
+								tItemChain=fItemChain;
+							} else {
+								tItemChain->next=malloc(sizeof(Item_Chain_t));
+								tItemChain=tItemChain->next;
+								tItemChain->item=malloc(sizeof(Config_Entry_t));
+							}
+							tItemChain->next=NULL;
+							
+							/* copy name / value into item */
+							tItemChain->item->name=malloc(strlen(cfg_name)+1);
+							strcpy(tItemChain->item->name,cfg_name);
+							
+							tItemChain->item->value=malloc(strlen(cfg_value)+1);
+							strcpy(tItemChain->item->value,cfg_value);
 						}
-						tItemChain->next=NULL;
-						
-						/* copy name / value into item */
-						tItemChain->item->name=malloc(strlen(cfg_name)+1);
-						strcpy(tItemChain->item->name,cfg_name);
-						
-						tItemChain->item->value=malloc(strlen(cfg_value)+1);
-						strcpy(tItemChain->item->value,cfg_value);
 					}
 				}
 			}
@@ -227,7 +230,7 @@ char* configparser_get_value(Config_t* config,Config_Section_t cs,char* key) {
 		cSectionItems=*(config->sections[cs]);
 		
 		for (i=0;i<cSectionItems.count;i++) {
-			if (strcasestr(cSectionItems.items[i]->name,key)) {
+			if (strcmp(cSectionItems.items[i]->name,key)==0) {
 				return cSectionItems.items[i]->value;
 			}
 		}

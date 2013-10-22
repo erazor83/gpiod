@@ -33,13 +33,16 @@ typedef enum ConfigSection{
 	CONFIG_SECTION_UNKNOWN						=-1,
 	GPIOD_CONFIG_SECTION_GPIOD				= 0,
 	GPIOD_CONFIG_SECTION_GPIO_SETUP		= 1,
-	GPIOD_CONFIG_SECTION_HANDLER			= 2
+	GPIOD_CONFIG_SECTION_GPIO_ALIASES	= 2,
+	GPIOD_CONFIG_SECTION_HANDLER			= 3
 } Config_Section_t;
-#define CONFIG_SECTION_COUNT		3
+
+#define CONFIG_SECTION_COUNT		4
 
 const char* CONFIG_SECTION_MAP[] = {
 	"GPIOd",
-	"GPIO-Setup",
+	"Setup",
+	"Aliases",
 	"Handler"
 };
 
@@ -72,8 +75,11 @@ int main(int argc, char *argv[]) {
 	unsigned int i;
 	
 	Config_SectionItems_t* cConfigSection;
-	unsigned int tGPIO_id;
+	char* tGPIO_id;
+	char* tGPIO_alias;
+	char* tGPIO_name;
 	char* tValue;
+	char* tValue2;
 	
 	struct pollfd *fdset;
 	int *GPIOfds;
@@ -110,7 +116,10 @@ int main(int argc, char *argv[]) {
 	//configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIOD);
 	
 	gpio_path=configparser_get_value(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIOD,"gpio_path");
+	//configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIOD);
+	
 	if (gpio_path==NULL) {
+		gpio_path=malloc(sizeof(DEFAULT_GPIO_PATH));
 		strcpy(gpio_path,DEFAULT_GPIO_PATH);
 	}
 	
@@ -118,32 +127,44 @@ int main(int argc, char *argv[]) {
 		printf("\ngpio_path=%s\n",gpio_path);
 		
 	}
-	
+	strcpy(SYSFS_GPIO_DIR,gpio_path);
 	//setup gpios
 	if (debug) {
-		printf("Setting up GPIOs...");
+		printf("Setting up GPIOs...\n");
 	}
 	//configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIO_SETUP);
 	cConfigSection=GPIOd_Config.sections[GPIOD_CONFIG_SECTION_GPIO_SETUP];
 	if (cConfigSection!=NULL) {
 		for (i=0;i<(cConfigSection->count);i++) {
-			//printf("checking %s\n",cConfigSection->items[i]->name);
-			if (sscanf(cConfigSection->items[i]->name,"%i",&tGPIO_id)==1) {
+			tGPIO_id=cConfigSection->items[i]->name;
+			tGPIO_alias=configparser_get_value(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIO_ALIASES,tGPIO_id);
+			if (tGPIO_alias!=NULL) {
+				tGPIO_name=tGPIO_alias;
+			} else {
+				tGPIO_name=tGPIO_id;
+			}
+			
+			if (tGPIO_name!=NULL) {
 				tValue=cConfigSection->items[i]->value;
 				if (debug) {
-					printf("%i -> %s\n",tGPIO_id,tValue);
+					printf("%s -> %s\n",tGPIO_name,tValue);
 				}
 				gpio_export(tGPIO_id);
 				if				(strcasestr(tValue,"input")) {
-					gpio_set_dir(tGPIO_id, 0);
+					gpio_set_dir(tGPIO_name, 0);
 					/* also manage edges*/
 					if				(strcasestr(tValue,"rising")) {
-						gpio_set_edge(tGPIO_id, "rising");
+						gpio_set_edge(tGPIO_name, "rising");
 					} else if (strcasestr(tValue,"falling")) {
-						gpio_set_edge(tGPIO_id, "falling");
+						gpio_set_edge(tGPIO_name, "falling");
 					}
 				} else if (strcasestr(tValue,"output")) {
-					gpio_set_dir(tGPIO_id, 1);
+					gpio_set_dir(tGPIO_name, 1);
+					tValue2=strchr(tValue,',');
+					if (tValue2!=NULL) {
+						// , found, next comes the value
+						gpio_set_value(tGPIO_name, atol(tValue2+1));
+					}
 				}
 			}
 		}
@@ -156,7 +177,7 @@ int main(int argc, char *argv[]) {
 	if (debug) {
 		printf("Creating GPIO-Watchlist...");
 	}
-	configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_HANDLER);
+	//configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_HANDLER);
 	cConfigSection=GPIOd_Config.sections[GPIOD_CONFIG_SECTION_HANDLER];
 	if (cConfigSection!=NULL) {
 		fd_count=cConfigSection->count+1;
@@ -170,13 +191,20 @@ int main(int argc, char *argv[]) {
 		fdset[0].events = POLLIN;
 		
 		for (i=0;i<(cConfigSection->count);i++) {
-			if (sscanf(cConfigSection->items[i]->name,"%i",&tGPIO_id)==1) {
-				GPIOfds[i]=gpio_fd_open(tGPIO_id);
+			tGPIO_id=cConfigSection->items[i]->name;
+			tGPIO_alias=configparser_get_value(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIO_ALIASES,tGPIO_id);
+			if (tGPIO_alias!=NULL) {
+				tGPIO_name=tGPIO_alias;
+			} else {
+				tGPIO_name=tGPIO_id;
+			}
+			if (tGPIO_name!=NULL) {
+				GPIOfds[i]=gpio_fd_open(tGPIO_name);
 				fdset[i+1].fd = GPIOfds[i];
 				fdset[i+1].events = POLLPRI;
 				tValue=cConfigSection->items[i]->value;
 				if (debug) {
-					printf("Adding fp=%i for GPIO#%i",GPIOfds[i],tGPIO_id);
+					printf("Adding fp=%i for GPIO#%s",GPIOfds[i],tGPIO_id);
 				}
 			}
 		}
