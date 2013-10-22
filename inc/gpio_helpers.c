@@ -42,8 +42,9 @@
  * Constants
  ****************************************************************/
  
-#define SYSFS_GPIO_DIR "/sys/class/gpio"
-#define POLL_TIMEOUT (3 * 1000) /* 3 seconds */
+char* SYSFS_GPIO_DIR="/sys/class/gpio";
+#define MAX_SYSFS_FILENAME_LENGTH	128
+
 #define MAX_BUF 64
 
 /****************************************************************
@@ -53,8 +54,10 @@ int gpio_export(unsigned int gpio)
 {
 	int fd, len;
 	char buf[MAX_BUF];
- 
-	fd = open(SYSFS_GPIO_DIR "/export", O_WRONLY);
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+	
+	strncat(filename,"/export",sizeof(filename));
+	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/export");
 		return fd;
@@ -74,8 +77,11 @@ int gpio_unexport(unsigned int gpio)
 {
 	int fd, len;
 	char buf[MAX_BUF];
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+	
+	strncat(filename,"/unexport",sizeof(filename));
  
-	fd = open(SYSFS_GPIO_DIR "/unexport", O_WRONLY);
+	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/export");
 		return fd;
@@ -92,12 +98,14 @@ int gpio_unexport(unsigned int gpio)
  ****************************************************************/
 int gpio_set_dir(unsigned int gpio, unsigned int out_flag)
 {
-	int fd, len;
-	char buf[MAX_BUF];
+	int fd;
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+	
+	strncat(filename,"/gpio%d/direction",sizeof(filename));
  
-	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR  "/gpio%d/direction", gpio);
+	snprintf(filename, sizeof(filename), filename, gpio);
  
-	fd = open(buf, O_WRONLY);
+	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/direction");
 		return fd;
@@ -117,12 +125,14 @@ int gpio_set_dir(unsigned int gpio, unsigned int out_flag)
  ****************************************************************/
 int gpio_set_value(unsigned int gpio, unsigned int value)
 {
-	int fd, len;
-	char buf[MAX_BUF];
+	int fd;
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+
+	strncat(filename,"/gpio%d/value",sizeof(filename));
  
-	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/gpio%d/value", gpio);
+	snprintf(filename, sizeof(filename), filename, gpio);
  
-	fd = open(buf, O_WRONLY);
+	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/set-value");
 		return fd;
@@ -142,13 +152,14 @@ int gpio_set_value(unsigned int gpio, unsigned int value)
  ****************************************************************/
 int gpio_get_value(unsigned int gpio, unsigned int *value)
 {
-	int fd, len;
-	char buf[MAX_BUF];
+	int fd;
 	char ch;
-
-	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/gpio%d/value", gpio);
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+	strncat(filename,"/gpio%d/value",sizeof(filename));
  
-	fd = open(buf, O_RDONLY);
+	snprintf(filename, sizeof(filename), filename, gpio);
+
+	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		perror("gpio/get-value");
 		return fd;
@@ -173,11 +184,13 @@ int gpio_get_value(unsigned int gpio, unsigned int *value)
 
 int gpio_set_edge(unsigned int gpio, char *edge)
 {
-	int fd, len;
+	int fd;
 	char buf[MAX_BUF];
-
-	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/gpio%d/edge", gpio);
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
+	strncat(filename,"/gpio%d/edge",sizeof(filename));
  
+	snprintf(filename, sizeof(filename), filename, gpio);
+
 	fd = open(buf, O_WRONLY);
 	if (fd < 0) {
 		perror("gpio/set-edge");
@@ -195,12 +208,14 @@ int gpio_set_edge(unsigned int gpio, char *edge)
 
 int gpio_fd_open(unsigned int gpio)
 {
-	int fd, len;
-	char buf[MAX_BUF];
+	int fd;
+	char filename[MAX_SYSFS_FILENAME_LENGTH];
 
-	len = snprintf(buf, sizeof(buf), SYSFS_GPIO_DIR "/gpio%d/value", gpio);
+	strncat(filename,"/gpio%d/value",sizeof(filename));
  
-	fd = open(buf, O_RDONLY | O_NONBLOCK );
+	snprintf(filename, sizeof(filename), filename, gpio);
+
+	fd = open(filename, O_RDONLY | O_NONBLOCK );
 	if (fd < 0) {
 		perror("gpio/fd_open");
 	}
