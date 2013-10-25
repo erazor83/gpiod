@@ -4,3 +4,14 @@ PROJECT(gpiod)
 SET(CMAKE_C_FLAGS "-I . -I inc/ -g -Wall")
 
 ADD_EXECUTABLE(gpiod gpiod.c inc/gpio_helpers.c)
+
+INSTALL(TARGETS gpiod
+	RUNTIME DESTINATION bin
+)
+
+#SET(CPACK_SET_DESTDIR ON)
+
+INSTALL(FILES gpiod.conf
+	DESTINATION etc
+)
+

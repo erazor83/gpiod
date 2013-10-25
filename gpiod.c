@@ -62,8 +62,9 @@ const char* CONFIG_SECTION_MAP[] = {
 void print_help(void) {
 	printf("gpiod, version %s\n",VERSION_STRING);
 	printf("  - setup GPIOs and manage input-changes\n");
-	printf("usage: gpiod [-d] [-h]\n");
+	printf("usage: gpiod [-d] [-w] [-h]\n");
 	printf("  d : show debug info\n");
+	printf("  w : watch inputs for changes\n");
 	printf("  h : show this help\n");
 }
 
@@ -71,6 +72,8 @@ Config_t GPIOd_Config;
 
 int main(int argc, char *argv[]) {
 	bool debug=false;
+	bool watch_inputs=false;
+
 	char* gpio_path;
 	unsigned int i;
 	
@@ -171,6 +174,11 @@ int main(int argc, char *argv[]) {
 		//configparser_dump_section(&GPIOd_Config,GPIOD_CONFIG_SECTION_GPIOD);
 	} else {
 		printf("No \"GPIO-setup\" section");
+	}
+
+  if (!watch_inputs) {
+		//we're done
+		return 0;
 	}
 
 	//watch inputs
